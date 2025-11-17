@@ -1,0 +1,57 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #0f1729;
+  --foreground: #00ff00;
+  --primary: #00d9ff;
+  --primary-foreground: #0f1729;
+  --secondary: #ff00ff;
+  --accent: #ffff00;
+  --border: #00d9ff;
+  --ring: #00d9ff;
+}
+
+.dark {
+  --background: #0f1729;
+  --foreground: #00ff00;
+  --primary: #00d9ff;
+  --primary-foreground: #0f1729;
+  --secondary: #ff00ff;
+  --accent: #ffff00;
+  --border: #00d9ff;
+  --ring: #00d9ff;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    /* Remove invalid outline-ring/50 class */
+    @apply border-border outline-none;
+  }
+  body {
+    @apply bg-background text-foreground font-mono;
+  }
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: #ff00ff;
+}
+
+grid-cols-13 {
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+}
