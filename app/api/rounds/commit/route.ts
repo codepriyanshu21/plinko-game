@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         "pathJson", 
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [
         roundId,
         nonce,
@@ -53,11 +53,19 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return NextResponse.json({
-      roundId,
-      commitHex,
-      nonce,
-    });
+    // For debugging: log the insert result and return the inserted row in dev
+    console.info('[v0] Commit insert result:', result);
+
+    const inserted = (result && (result.rows || result[0])) ? (result.rows ? result.rows[0] : result[0]) : null;
+
+    const payload: any = { roundId, commitHex, nonce };
+    if (process.env.NODE_ENV !== 'production') {
+      // In dev include serverSeed so you can verify DB contents — do NOT expose in production
+      payload.serverSeed = serverSeed;
+      payload.inserted = inserted;
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('[v0] Commit endpoint error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);

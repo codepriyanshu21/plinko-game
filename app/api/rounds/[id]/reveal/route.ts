@@ -10,8 +10,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { serverSeed } = body;
+    // No serverSeed required from client — server holds it in DB and will reveal it
 
     // Fetch round
     const result = await sql`
@@ -24,26 +23,43 @@ export async function POST(
 
     const round = result[0];
 
-    if (round.status !== 'STARTED') {
+    const status = String(round.status ?? '').toUpperCase();
+
+    // If the round has already been revealed, return the reveal info (idempotent)
+    if (status === 'REVEALED') {
+      console.info('[v0] Reveal requested for already revealed round, returning existing reveal', { id });
+      return NextResponse.json({
+        roundId: id,
+        status: 'REVEALED',
+        serverSeed: round.serverSeed,
+        combinedSeed: round.combinedSeed,
+        binIndex: round.binIndex,
+        pathJson: round.pathJson,
+      });
+    }
+
+    if (status !== 'STARTED') {
+      console.error('[v0] Reveal attempted for round with wrong status', { id, status, round });
       return NextResponse.json(
-        { error: 'Round not in started state' },
+        { error: 'Round not in started state', currentStatus: round.status },
         { status: 400 }
       );
     }
 
-    // Validate server seed against commit
+    // Validate server seed from DB against the stored commit
+    const serverSeed = round.serverSeed;
+    if (!serverSeed) {
+      return NextResponse.json({ error: 'Server seed not available' }, { status: 400 });
+    }
+
     if (!validateCommit(round.commitHex, serverSeed, round.nonce)) {
-      return NextResponse.json(
-        { error: 'Invalid server seed' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Commit mismatch' }, { status: 500 });
     }
 
     // Update to REVEALED status
     await sql`
       UPDATE "Round"
       SET status = 'REVEALED', 
-          "serverSeed" = ${serverSeed},
           "revealedAt" = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `;
@@ -52,9 +68,13 @@ export async function POST(
       roundId: id,
       status: 'REVEALED',
       serverSeed,
+      combinedSeed: round.combinedSeed,
+      binIndex: round.binIndex,
+      pathJson: round.pathJson,
     });
   } catch (error) {
-    console.error('[v0] Reveal endpoint error:', error);
-    return NextResponse.json({ error: 'Failed to reveal round' }, { status: 500 });
+    console.error('[v0] Reveal endpoint error:', error instanceof Error ? error.stack ?? error.message : error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'Failed to reveal round', details: msg }, { status: 500 });
   }
 }

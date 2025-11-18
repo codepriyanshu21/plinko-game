@@ -48,11 +48,14 @@ export default function Home() {
       });
 
       const startData = await startRes.json();
-      
-      // For now, simulate the path from the response
-      // In real implementation, reconstruct from deterministic engine
-      const simulatedPath = Array.from({ length: 12 }, (_, i) => Math.random() < 0.5);
-      setPath(simulatedPath);
+
+      // Use the deterministic path returned by the start API when available
+      if (startData && Array.isArray(startData.path)) {
+        setPath(startData.path);
+      } else {
+        const simulatedPath = Array.from({ length: 12 }, (_, i) => Math.random() < 0.5);
+        setPath(simulatedPath);
+      }
 
       // Mock peg map
       setPegMap(Array.from({ length: 12 }, (_, r) =>
@@ -76,13 +79,23 @@ export default function Home() {
   const handleAnimationComplete = async () => {
     setGameActive(false);
     // Reveal round
-    if (roundId && commitHex) {
+    if (roundId) {
       try {
         const revealRes = await fetch(`/api/rounds/${roundId}/reveal`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ serverSeed: '' }), // Server seed should be from server
         });
+
+        const revealData = await revealRes.json();
+        if (!revealRes.ok || revealData.error) {
+          console.error('Reveal failed:', revealData);
+          alert('Reveal failed: ' + (revealData?.error || 'unknown'));
+          return;
+        }
+
+        console.log('Reveal result:', revealData);
+        // Show result to user
+        alert(`Round revealed — bin: ${revealData.binIndex}, serverSeed: ${String(revealData.serverSeed).slice(0,8)}...`);
       } catch (error) {
         console.error('Error revealing round:', error);
       }

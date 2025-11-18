@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { computeCombinedSeed } from '@/lib/crypto';
-import { computeDrop, generatePegMap, pegMapHash } from '@/lib/plinko-engine';
+import {  generatePegMap, pegMapHash } from '@/lib/plinko-engine';
 import { Xorshift32, seedFromHash } from '@/lib/crypto';
 import { getPayoutMultiplier } from '@/lib/paytable';
 
@@ -32,9 +32,30 @@ export async function POST(
 
     const round = result[0];
 
-    if (round.status !== 'CREATED') {
+    const status = String(round.status ?? '').toUpperCase();
+
+    // If the round is already STARTED or REVEALED, return the existing start info (idempotent)
+    if (status === 'STARTED' || status === 'REVEALED') {
+      try {
+        const existingPath = round.pathJson ? JSON.parse(round.pathJson) : null;
+        return NextResponse.json({
+          roundId: id,
+          pegMapHash: round.pegMapHash,
+          rows: 12,
+          binIndex: round.binIndex,
+          payoutMultiplier: round.payoutMultiplier,
+          path: existingPath,
+          currentStatus: round.status,
+        });
+      } catch (err) {
+        console.error('[v0] Failed to parse existing pathJson for round', { id, err, pathJson: round.pathJson });
+        return NextResponse.json({ error: 'Round already started', currentStatus: round.status }, { status: 400 });
+      }
+    }
+
+    if (status !== 'CREATED') {
       return NextResponse.json(
-        { error: 'Round already started' },
+        { error: 'Round already started', currentStatus: round.status },
         { status: 400 }
       );
     }
@@ -70,7 +91,7 @@ export async function POST(
     const binIndex = pos;
     const payoutMultiplier = getPayoutMultiplier(binIndex);
 
-    // Update round with STARTED status
+    // Update round with STARTED status (store path)
     await sql`
       UPDATE "Round"
       SET status = 'STARTED', 
@@ -91,6 +112,7 @@ export async function POST(
       rows: 12,
       binIndex,
       payoutMultiplier,
+      path,
     });
   } catch (error) {
     console.error('[v0] Start endpoint error:', error);

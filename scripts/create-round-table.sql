@@ -1,22 +1,31 @@
--- Create the Round table for Plinko game
-CREATE TABLE IF NOT EXISTS "Round" (
+DROP TABLE IF EXISTS "Round";
+
+CREATE TABLE "Round" (
   id TEXT PRIMARY KEY,
+  "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'CREATED',
+
+  -- Fairness
   nonce TEXT NOT NULL,
   "commitHex" TEXT NOT NULL,
-  "serverSeed" TEXT NOT NULL,
-  "clientSeed" TEXT,
-  "combinedSeed" TEXT,
-  "pegMapHash" TEXT,
-  "dropColumn" INTEGER,
-  "binIndex" INTEGER,
-  "payoutMultiplier" DECIMAL(10, 2),
-  "betCents" INTEGER,
-  "pathJson" TEXT,
-  status TEXT NOT NULL DEFAULT 'CREATED',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  "serverSeed" TEXT,          -- nullable
+  "clientSeed" TEXT NOT NULL,
+  "combinedSeed" TEXT NOT NULL,
+  "pegMapHash" TEXT NOT NULL,
+
+  -- Game State
+  rows INTEGER DEFAULT 12,    -- added missing field
+  "dropColumn" INTEGER NOT NULL,
+  "binIndex" INTEGER NOT NULL,
+  "payoutMultiplier" DOUBLE PRECISION NOT NULL,
+  "betCents" INTEGER NOT NULL,
+
+  -- Path JSON (correct type)
+  "pathJson" JSONB NOT NULL,
+
+  "revealedAt" TIMESTAMP
 );
 
--- Create index on status for efficient lookups
-CREATE INDEX IF NOT EXISTS idx_round_status ON "Round"(status);
-CREATE INDEX IF NOT EXISTS idx_round_created_at ON "Round"(created_at);
+-- Correct index names
+CREATE INDEX idx_round_createdAt ON "Round"("createdAt");
+CREATE INDEX idx_round_status ON "Round"(status);

@@ -12,6 +12,12 @@ export async function POST() {
       );
     }
 
+    // If running in development, ensure any partial or stale table is removed
+    // so the CREATE TABLE below can run cleanly after DB resets.
+    if (process.env.NODE_ENV !== 'production') {
+      await sql`DROP TABLE IF EXISTS "Round"`;
+    }
+
     await sql`
       CREATE TABLE IF NOT EXISTS "Round" (
         id TEXT PRIMARY KEY,
@@ -27,6 +33,7 @@ export async function POST() {
         "betCents" INTEGER,
         "pathJson" TEXT,
         status TEXT NOT NULL DEFAULT 'CREATED',
+        "revealedAt" TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
