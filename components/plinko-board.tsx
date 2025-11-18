@@ -28,6 +28,8 @@ export default function PlinkoBoard({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ball, setBall] = useState<BallState | null>(null);
   const animationRef = useRef<number | null>(null);
+  const completionRef = useRef<boolean>(false);
+  const completionTimeoutRef = useRef<number | null>(null);
 
   const ROWS = 12;
   const COLS = 13;
@@ -186,7 +188,19 @@ export default function PlinkoBoard({
       // Stop animation after landing
       if (currentBall.isLanding && pathIndex >= path.length) {
         drawBoard(ctx, currentBall);
-        setTimeout(() => onAnimationComplete(), 500);
+        if (!completionRef.current) {
+          completionRef.current = true;
+          // schedule completion callback and store timeout so it can be cleared on cleanup
+          const t = window.setTimeout(() => {
+            try {
+              onAnimationComplete();
+            } finally {
+              completionRef.current = false;
+              completionTimeoutRef.current = null;
+            }
+          }, 500);
+          completionTimeoutRef.current = t;
+        }
         return;
       }
 
@@ -201,6 +215,11 @@ export default function PlinkoBoard({
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+        completionTimeoutRef.current = null;
+      }
+      completionRef.current = false;
     };
   }, [path, pegMap, onAnimationComplete, canvasWidth]);
 
