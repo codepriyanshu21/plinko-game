@@ -1,101 +1,344 @@
 # Plinko Lab — Provably Fair Plinko Game
 
-Lightweight, deterministic Plinko game with a commit-reveal fairness protocol, built on Next.js + TypeScript and a Neon/Postgres backend.
 
-This README focuses on developer setup, scripts, and troubleshooting for this workspace.
+A lightweight, deterministic Plinko game with provable fairness using a commit-reveal protocol. Built with Next.js, TypeScript, and Neon Postgres backend.
 
----
+## 🎮 Live Demo
 
-## Quick Start
+🚀 **[Play Plinko Lab](https://plinko-game-zzjg.vercel.app)** 
 
-1. Install dependencies:
+## ✨ Features
 
-```powershell
-npm install
+- **Provably Fair**: Cryptographic commit-reveal protocol ensures game integrity
+- **Deterministic Gameplay**: SHA256 + Xorshift32 PRNG for reproducible results
+- **Real-time Animation**: Smooth HTML5 Canvas ball physics simulation
+- **Responsive Design**: Mobile-first UI with Tailwind CSS
+- **Verification Tool**: Independent verification of any round's fairness
+- **Database Backend**: Neon Postgres with Prisma schema
+- **Type-Safe**: Full TypeScript implementation
+- **Tested**: Comprehensive unit tests with Vitest
+
+## 🏗️ Architecture
+
+### System Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   API Routes    │    │   Database      │
+│   (Next.js)     │◄──►│   (Next.js)     │◄──►│   (Neon PG)     │
+│                 │    │                 │    │                 │
+│ • Game UI       │    │ • /api/rounds   │    │ • Round Table   │
+│ • Canvas Board  │    │ • /api/verify   │    │ • Fairness Data │
+│ • Controls      │    │ • /api/init-db  │    │ • Game State    │
+│ • Paytable      │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-2. Create a `.env` from your local template and set `DATABASE_URL` (Neon or Postgres):
+### Fairness Protocol
 
-```powershell
-copy .env .env.local
-# Edit .env.local and set DATABASE_URL
+1. **Commit Phase**: Server generates `serverSeed` + `nonce`, computes `commitHex = SHA256(serverSeed:nonce)`
+2. **Reveal Phase**: After game completion, server reveals `serverSeed` for verification
+3. **Combined Seed**: `SHA256(serverSeed:clientSeed:nonce)` determines deterministic game outcome
+4. **Verification**: Anyone can verify fairness using public seeds and parameters
+
+### Game Flow
+
+```
+Client Request ──► Commit ──► Start ──► Reveal ──► Verify
+     │               │         │         │         │
+     ▼               ▼         ▼         ▼         ▼
+  Create Round    Store     Compute    Reveal    Check
+  (serverSeed)   Commit     Outcome   serverSeed Integrity
 ```
 
-3. Run the database migration (TypeScript script uses `ts-node`):
+## 🛠️ Tech Stack
 
-```powershell
-npm run migrate-db
-```
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Styling**: Tailwind CSS, Radix UI components
+- **Backend**: Next.js API Routes, Neon Postgres
+- **Database**: PostgreSQL with Prisma ORM
+- **Crypto**: Node.js crypto module (SHA256)
+- **PRNG**: Custom Xorshift32 implementation
+- **Testing**: Vitest, React Testing Library
+- **Deployment**: Vercel (recommended)
 
-4. Start the dev server:
+## 🚀 Installation & Setup
 
-```powershell
+### Prerequisites
+
+- Node.js 18+
+- npm or pnpm
+- Neon Postgres database (or any PostgreSQL)
+
+### Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/plinko-lab.git
+   cd plinko-lab
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local and add your DATABASE_URL
+   ```
+
+4. **Initialize database**
+   ```bash
+   npm run migrate-db
+   ```
+
+5. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open in browser**
+   ```
+   http://localhost:3000
+   ```
+
+## 🎯 Running Locally
+
+### Development Commands
+
+```bash
+# Start dev server
 npm run dev
-# Open http://localhost:3000
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Run database migration
+npm run migrate-db
+
+# Run tests
+npm test
+
+# Run linting
+npm run lint
 ```
 
-## Important NPM Scripts
+### Database Setup
 
-- `npm run dev` — start Next.js in development
-- `npm run build` — production build
-- `npm run start` — start built app
-- `npm run migrate-db` — run TypeScript DB migration (`scripts/migrate-db.ts`) via `ts-node`
-- `npm test` — run unit tests (uses `vitest`)
+The app uses Neon Postgres. Set up your database:
 
-## Project notes
+1. Create a Neon project at [neon.tech](https://neon.tech)
+2. Get your connection string
+3. Add to `.env.local`:
+   ```
+   DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+   ```
 
-- The app uses a commit-reveal flow: server creates a `serverSeed` + `nonce` and stores `commitHex = sha256(serverSeed:nonce)`. The client supplies a `clientSeed`. Combined seed determines deterministic peg map and path.
-- The UI canvas is responsive and sized to its container (ResizeObserver). The code was updated to avoid top-level `window` references so Server-Side Rendering (Next.js) doesn't crash.
-- The project previously included a package (`vaul`) that declared a peer dependency incompatible with React 19 — that dependency was removed to resolve ERESOLVE during install.
+### Environment Variables
 
-## Tests
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
 
-Run unit tests with Vitest:
+## 📡 API Documentation
 
-```powershell
+### Endpoints
+
+#### `POST /api/init-db`
+Initialize database tables.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Database initialized"
+}
+```
+
+#### `POST /api/rounds/commit`
+Create a new game round with commit hash.
+
+**Response:**
+```json
+{
+  "roundId": "abc123...",
+  "commitHex": "sha256_hash...",
+  "nonce": "hex_nonce"
+}
+```
+
+#### `POST /api/rounds/{id}/start`
+Start a round with client parameters.
+
+**Request:**
+```json
+{
+  "clientSeed": "user_seed",
+  "dropColumn": 6,
+  "betCents": 100
+}
+```
+
+**Response:**
+```json
+{
+  "roundId": "abc123...",
+  "pegMapHash": "sha256_hash...",
+  "binIndex": 6,
+  "payoutMultiplier": 0.5,
+  "path": [true, false, ...]
+}
+```
+
+#### `POST /api/rounds/{id}/reveal`
+Reveal server seed and complete round.
+
+**Response:**
+```json
+{
+  "roundId": "abc123...",
+  "serverSeed": "revealed_seed...",
+  "combinedSeed": "combined_hash...",
+  "binIndex": 6
+}
+```
+
+#### `GET /api/verify`
+Verify round fairness independently.
+
+**Query Parameters:**
+- `serverSeed`: Server seed
+- `clientSeed`: Client seed
+- `nonce`: Nonce
+- `dropColumn`: Drop column (default: 6)
+- `roundId`: Optional round ID to compare
+
+**Response:**
+```json
+{
+  "commitHex": "sha256_hash...",
+  "combinedSeed": "combined_hash...",
+  "pegMapHash": "peg_hash...",
+  "binIndex": 6,
+  "path": [true, false, ...],
+  "match": {
+    "commitHexMatch": true,
+    "combinedSeedMatch": true,
+    "pegMapHashMatch": true,
+    "binIndexMatch": true
+  }
+}
+```
+
+## 🔍 Verification Process
+
+### How to Verify a Round
+
+1. **Get Round Data**: After a game, note the `roundId`
+2. **Wait for Reveal**: Server reveals `serverSeed` after game completion
+3. **Use Verifier**: Visit `/verify` page or call `/api/verify` endpoint
+4. **Check Results**: Verify all hashes and outcomes match
+
+### Test Vector
+
+For validation, use these known inputs:
+
+- **serverSeed**: `b2a5f3f32a4d9c6ee7a8c1d33456677890abcdeffedcba0987654321ffeeddcc`
+- **nonce**: `42`
+- **clientSeed**: `candidate-hello`
+- **dropColumn**: `6`
+- **Expected binIndex**: `6`
+- **Expected commitHex**: `bb9acdc67f3f18f3345236a01f0e5072596657a9005c7d8a22cff061451a6b34`
+
+## 🧪 Testing
+
+Run the test suite:
+
+```bash
 npm test
 ```
 
-Test files live under `__tests__/` and cover crypto utilities, PRNG, peg-map generation and the plinko engine.
+Tests cover:
+- Cryptographic functions (SHA256, Xorshift32)
+- Plinko engine (peg map generation, ball simulation)
+- Fairness verification
 
-If TypeScript complains about test globals (`expect`, `describe`) ensure `vitest` is installed and the `/// <reference types="vitest" />` lines are present at the top of the test files (they were added automatically in this repo).
+## 🚀 Deployment
 
-## Database migration
+### Vercel (Recommended)
 
-- Migration script: `scripts/migrate-db.ts` — it reads `scripts/create-round-table.sql` and runs the statements using the `@neondatabase/serverless` client.
-- Run: `npm run migrate-db` (requires `DATABASE_URL` in `.env.local`).
+1. Push to GitHub
+2. Connect repo to Vercel
+3. Add `DATABASE_URL` environment variable
+4. Deploy
 
-## Troubleshooting
+### Other Platforms
 
-- ERESOLVE / peer dependency errors: if you run into a peer conflict during `npm install`, either remove the conflicting package (we removed `vaul`) or run:
+Build and deploy using standard Next.js deployment:
 
-```powershell
+```bash
+npm run build
+npm start
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**ERESOLVE / Peer Dependency Errors**
+```bash
 npm install --legacy-peer-deps
 ```
 
-- `ReferenceError: window is not defined` during SSR: indicates client-only code ran on the server. The canvas code now runs window-dependent logic inside `useEffect` / ResizeObserver; restart the dev server after pulling changes.
+**Window Reference Error (SSR)**
+- Canvas code runs in `useEffect` to avoid SSR issues
+- Restart dev server after changes
 
-- `Invalid source map` warnings during dev: often benign and produced by third-party packages. They don't usually break the app; if you want to silence or fix them, we can identify the package producing the bad source map.
+**Invalid Source Map Warnings**
+- Usually benign, produced by third-party packages
+- Can be silenced by identifying the problematic package
 
-- Running `ts` scripts directly with `node` will fail on `.ts` files. Use `npm run migrate-db` (uses `ts-node`) or compile via `tsc` first.
+**TypeScript Script Execution**
+- Use `npm run migrate-db` (uses `ts-node`)
+- Don't run `.ts` files directly with `node`
 
-## Responsive UI
+**Database Connection**
+- Ensure `DATABASE_URL` is set correctly
+- Check Neon dashboard for connection issues
 
-- The main page and components include responsive Tailwind classes. The canvas scales to its container and the paytable/control panels use responsive grids and paddings for mobile.
-- If you want tighter mobile visuals (smaller peg/ball radii or scaled fonts), we can add proportional drawing parameters based on `canvasWidth`.
+## 🤝 Contributing
 
-## Deployment
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-- Vercel (recommended for Next.js): push to GitHub and connect the repo. Set `DATABASE_URL` in Vercel project settings.
-- Other platforms: build and deploy using the platform's Node/Next instructions.
+### Development Guidelines
+
+- Use TypeScript for all new code
+- Follow existing code style
+- Add tests for new features
+- Update documentation
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [Radix UI](https://radix-ui.com/)
+- Database hosting by [Neon](https://neon.tech)
+- Styling with [Tailwind CSS](https://tailwindcss.com/)
 
 ---
 
-If you'd like, I can:
-
-- run `npm install` and `npm test` here and paste the logs,
-- add mobile-specific drawing scale for the canvas, or
-- investigate the `Invalid source map` warnings and remove the offending map.
-
-License: MIT
-
+**Plinko Lab** - Where probability meets provable fairness 🎲
