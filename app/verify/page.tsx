@@ -72,9 +72,9 @@ export default function VerifyPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+    <main className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-5xl font-mono font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-magenta-400">
+        <h1 className="text-5xl font-mono font-black text-center mb-2 text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-magenta-400">
           PLINKO VERIFIER
         </h1>
         <p className="text-center text-cyan-300 font-mono text-sm mb-8">Verify round fairness and outcomes</p>
